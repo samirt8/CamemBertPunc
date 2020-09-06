@@ -145,9 +145,12 @@ if __name__ == '__main__':
 
     punctuation_enc = {
         'O': 0,
-        'COMMA': 1,
-        'PERIOD': 2,
-        'QUESTION': 3
+        ',COMMA': 1,
+        '.PERIOD': 2,
+        '?QUESTIONMARK': 3,
+        ':COLON': 4,
+        '!EXCLAMATIONMARK': 5,
+        ';SEMICOLON': 6
     }
 
     segment_size = 32
@@ -172,19 +175,16 @@ if __name__ == '__main__':
         'batch_size_all': batch_size_all,
         'learning_rate_all': learning_rate_all,
     }
+    data_path = "/home/stanfous/datasets/punctuation_model/data_dir_punctuator"
     save_path = 'models/{}/'.format(datetime.now().strftime("%Y%m%d_%H%M%S"))
     os.mkdir(save_path)
     with open(save_path+'hyperparameters.json', 'w') as f:
         json.dump(hyperparameters, f)
 
     print('LOADING DATA...')
-    # data_train = load_file('data/LREC/train2012')
-    # data_valid = load_file('data/LREC/dev2012')
-    # data_test = load_file('data/LREC/test2011')
-    # data_test_asr = load_file('data/LREC/test2011asr')
-    data_train = load_file('data/NPR-podcasts/train')
-    data_valid = load_file('data/NPR-podcasts/valid')
-    data_test = load_file('data/NPR-podcasts/test')
+    data_train = load_file(os.path.join(data_path,'cleaned_leMonde_with_punct_for_punctuator.train.txt'))
+    data_valid = load_file(os.path.join(data_path,'cleaned_leMonde_with_punct_for_punctuator.dev.txt'))
+    data_test = load_file(os.path.join(data_path,'cleaned_leMonde_with_punct_for_punctuator.test.txt'))
 
     tokenizer = BertTokenizer.from_pretrained('bert-base-uncased', do_lower_case=True)
 
