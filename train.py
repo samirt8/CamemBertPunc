@@ -10,8 +10,8 @@ from datetime import datetime
 import torch
 from torch import nn, optim
 import torch.nn.functional as F
-from pytorch_pretrained_bert import CamembertTokenizer
-from pytorch_pretrained_bert.optimization import BertAdam, warmup_linear
+from transformers import CamembertTokenizer
+#from pytorch_pretrained_bert.optimization import BertAdam, warmup_linear
 
 from sklearn import metrics # https://scikit-learn.org/stable/modules/classes.html#module-sklearn.metrics
 from sklearn.exceptions import UndefinedMetricWarning
@@ -34,7 +34,8 @@ def validate(model, criterion, epoch, epochs, iteration, iterations, data_loader
 
         with torch.no_grad():
 
-            inputs, labels = inputs.cuda(), labels.cuda()
+            #inputs, labels = inputs.cuda(), labels.cuda()
+            inputs, labels = inputs.cpu(), labels.cpu()
             output = model(inputs)
             val_loss = criterion(output, labels)
             val_losses.append(val_loss.cpu().data.numpy())
@@ -103,7 +104,7 @@ def train(model, optimizer, criterion, epochs, data_loader_train, data_loader_va
 
         for inputs, labels in data_loader_train:
 
-            inputs, labels = inputs.cuda(), labels.cuda()
+            inputs, labels = inputs.cpu(), labels.cpu()
             inputs.requires_grad = False
             labels.requires_grad = False
             output = model(inputs)
@@ -186,7 +187,7 @@ if __name__ == '__main__':
     data_valid = load_file(os.path.join(data_path,'cleaned_leMonde_with_punct_for_punctuator.dev.txt'))
     data_test = load_file(os.path.join(data_path,'cleaned_leMonde_with_punct_for_punctuator.test.txt'))
 
-    tokenizer = BertTokenizer.from_pretrained('bert-base-uncased', do_lower_case=True)
+    tokenizer = CamembertTokenizer.from_pretrained('camembert-base')
 
     print('PREPROCESSING DATA...')
     X_train, y_train = preprocess_data(data_train, tokenizer, punctuation_enc, segment_size)
@@ -194,7 +195,8 @@ if __name__ == '__main__':
 
     print('INITIALIZING MODEL...')
     output_size = len(punctuation_enc)
-    bert_punc = nn.DataParallel(BertPunc(segment_size, output_size, dropout).cuda())
+    #bert_punc = nn.DataParallel(BertPunc(segment_size, output_size, dropout).cuda())
+    bert_punc = BertPunc(segment_size, output_size, dropout).cpu()
 
     print('TRAINING TOP LAYER...')
     data_loader_train = create_data_loader(X_train, y_train, True, batch_size_top)
