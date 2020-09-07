@@ -19,7 +19,7 @@ import warnings
 warnings.filterwarnings("ignore", category=UndefinedMetricWarning)
 
 from model import BertPunc
-from data import load_file, preprocess_data, create_data_loader
+from data import load_file, encode_data, create_data_loader
 
 def validate(model, criterion, epoch, epochs, iteration, iterations, data_loader_valid, save_path, train_loss, best_val_loss, best_model_path, punctuation_enc):
 
@@ -154,6 +154,9 @@ if __name__ == '__main__':
         ';SEMICOLON': 6
     }
 
+    puncs = [
+        'O', ',COMMA', '.PERIOD', '?QUESTIONMARK', ':COLON', '!EXCLAMATIONMARK', ';SEMICOLON']
+
     segment_size = 32
     dropout = 0.3
     epochs_top = 1
@@ -183,20 +186,26 @@ if __name__ == '__main__':
         json.dump(hyperparameters, f)
 
     print('LOADING DATA...')
-    data_train = load_file(os.path.join(data_path,'cleaned_leMonde_with_punct_for_punctuator.train.txt'))
-    data_valid = load_file(os.path.join(data_path,'cleaned_leMonde_with_punct_for_punctuator.dev.txt'))
-    data_test = load_file(os.path.join(data_path,'cleaned_leMonde_with_punct_for_punctuator.test.txt'))
+    #data_train = load_file(os.path.join(data_path,'cleaned_leMonde_with_punct_for_punctuator.train.txt'))
+    #data_valid = load_file(os.path.join(data_path,'cleaned_leMonde_with_punct_for_punctuator.dev.txt'))
+    #data_test = load_file(os.path.join(data_path,'cleaned_leMonde_with_punct_for_punctuator.test.txt'))
+
+    data_train = load_file('train_sub.txt')
+    data_valid = load_file('train_sub.txt')
+    data_test = load_file('train_sub.txt')
 
     tokenizer = CamembertTokenizer.from_pretrained('camembert-base')
 
     print('PREPROCESSING DATA...')
-    X_train, y_train = preprocess_data(data_train, tokenizer, punctuation_enc, segment_size)
-    X_valid, y_valid = preprocess_data(data_valid, tokenizer, punctuation_enc, segment_size)
+    X_train, y_train = encode_data(data_train, tokenizer, puncs, punctuation_enc, segment_size)
+    print("X_train : ", X_train)
+    print("y_train : ", y_train)
+    X_valid, y_valid = encode_data(data_valid, tokenizer, puncs, punctuation_enc, segment_size)
 
     print('INITIALIZING MODEL...')
     output_size = len(punctuation_enc)
-    #bert_punc = nn.DataParallel(BertPunc(segment_size, output_size, dropout).cuda())
-    bert_punc = BertPunc(segment_size, output_size, dropout).cpu()
+    bert_punc = nn.DataParallel(BertPunc(segment_size, output_size, dropout).cuda())
+    #bert_punc = BertPunc(segment_size, output_size, dropout).cpu()
 
     print('TRAINING TOP LAYER...')
     data_loader_train = create_data_loader(X_train, y_train, True, batch_size_top)

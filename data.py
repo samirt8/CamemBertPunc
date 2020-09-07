@@ -8,7 +8,7 @@ def load_file(filename):
         data = f.readlines()
     return data
 
-def encode_data(data, tokenizer, punctuation_enc):
+def encode_data(data, tokenizer, puncs, punctuation_enc, segment_size):
     """
     Converts words to (BERT) tokens and punctuation to given encoding.
     Note that words can be composed of multiple tokens.
@@ -26,16 +26,16 @@ def encode_data(data, tokenizer, punctuation_enc):
             else:
                 x.insert(i+1, word)
                 y.append(punctuation_enc['O'])
-        tokens = tokenizer.tokenize(line)
-        X.append(x)
-        Y.append(y)
-    return np.array(X), Y
-
-def preprocess_data(data, tokenizer, punctuation_enc, segment_size):
-    X, y = encode_data(data, tokenizer, punctuation_enc)
-    return X, y
+        if x:
+            x = " ".join(x)
+            x = tokenizer.tokenize(x)
+            x = tokenizer.convert_tokens_to_ids(x)
+            x = tokenizer.encode(x, pad_to_max_length=True, max_length=segment_size)
+            X.append(x)
+            Y.append(y)
+    return X, Y
 
 def create_data_loader(X, y, shuffle, batch_size):
-    data_set = TensorDataset(torch.from_numpy(X).long(), torch.from_numpy(np.array(y)).long())
+    data_set = TensorDataset(torch.from_numpy(np.array(X)).long(), torch.from_numpy(np.array(X)).long())
     data_loader = DataLoader(data_set, batch_size=batch_size, shuffle=shuffle)
     return data_loader
