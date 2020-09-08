@@ -1,4 +1,3 @@
-
 import numpy as np
 import pickle
 from tqdm import tqdm
@@ -11,18 +10,20 @@ import torch
 from torch import nn, optim
 import torch.nn.functional as F
 from transformers import CamembertTokenizer
-#from pytorch_pretrained_bert.optimization import BertAdam, warmup_linear
+# from pytorch_pretrained_bert.optimization import BertAdam, warmup_linear
 
-from sklearn import metrics # https://scikit-learn.org/stable/modules/classes.html#module-sklearn.metrics
+from sklearn import metrics  # https://scikit-learn.org/stable/modules/classes.html#module-sklearn.metrics
 from sklearn.exceptions import UndefinedMetricWarning
 import warnings
+
 warnings.filterwarnings("ignore", category=UndefinedMetricWarning)
 
 from model import BertPunc
 from data import load_file, encode_data, create_data_loader
 
-def validate(model, criterion, epoch, epochs, iteration, iterations, data_loader_valid, save_path, train_loss, best_val_loss, best_model_path, punctuation_enc):
 
+def validate(model, criterion, epoch, epochs, iteration, iterations, data_loader_valid, save_path, train_loss,
+             best_val_loss, best_model_path, punctuation_enc):
     val_losses = []
     val_accs = []
     val_f1s = []
@@ -31,11 +32,9 @@ def validate(model, criterion, epoch, epochs, iteration, iterations, data_loader
     label_vals = list(punctuation_enc.values())
 
     for inputs, labels in tqdm(data_loader_valid, total=len(data_loader_valid)):
-
         with torch.no_grad():
-
-            #inputs, labels = inputs.cuda(), labels.cuda()
-            inputs, labels = inputs.cpu(), labels.cpu()
+            inputs, labels = inputs.cuda(), labels.cuda()
+            # inputs, labels = inputs.cpu(), labels.cpu()
             output = model(inputs)
             val_loss = criterion(output, labels)
             val_losses.append(val_loss.cpu().data.numpy())
@@ -44,7 +43,7 @@ def validate(model, criterion, epoch, epochs, iteration, iterations, data_loader
             y_true = labels.cpu().data.numpy().flatten()
             val_accs.append(metrics.accuracy_score(y_true, y_pred))
             val_f1s.append(metrics.f1_score(y_true, y_pred, average=None, labels=label_vals))
-    
+
     val_loss = np.mean(val_losses)
     val_acc = np.mean(val_accs)
     val_f1 = np.array(val_f1s).mean(axis=0)
@@ -104,7 +103,7 @@ def train(model, optimizer, criterion, epochs, data_loader_train, data_loader_va
 
         for inputs, labels in data_loader_train:
 
-            inputs, labels = inputs.cpu(), labels.cpu()
+            inputs, labels = inputs.cuda(), labels.cuda()
             inputs.requires_grad = False
             labels.requires_grad = False
             output = model(inputs)
@@ -113,36 +112,34 @@ def train(model, optimizer, criterion, epochs, data_loader_train, data_loader_va
             optimizer.step()
             optimizer.zero_grad()
             train_loss = loss.cpu().data.numpy()
-            
+
             pbar.update()
-            
+
             if counter % print_every == 0:
-                
+
                 pbar.close()
                 model.eval()
-                best_val_loss, best_model_path = validate(model, criterion, e, epochs, iteration, iterations, data_loader_valid, 
+                best_val_loss, best_model_path = validate(model, criterion, e, epochs, iteration, iterations, data_loader_valid,
                     save_path, train_loss, best_val_loss, best_model_path, punctuation_enc)
                 model.train()
                 pbar = tqdm(total=print_every)
                 iteration += 1
-
             counter += 1
 
         pbar.close()
         model.eval()
-        best_val_loss, best_model_path = validate(model, criterion, e, epochs, iteration, iterations, data_loader_valid, 
+        best_val_loss, best_model_path = validate(model, criterion, e, epochs, iteration, iterations, data_loader_valid,
             save_path, train_loss, best_val_loss, best_model_path, punctuation_enc)
         model.train()
         if e < epochs-1:
             pbar = tqdm(total=print_every)
-                
+
     model.load_state_dict(torch.load(best_model_path))
     model.eval()
 
     return model, optimizer, best_val_loss
 
 if __name__ == '__main__':
-    
 
     punctuation_enc = {
         'O': 0,
@@ -157,15 +154,15 @@ if __name__ == '__main__':
     puncs = [
         'O', ',COMMA', '.PERIOD', '?QUESTIONMARK', ':COLON', '!EXCLAMATIONMARK', ';SEMICOLON']
 
-    segment_size = 32
+    segment_size = 16*len(puncs)
     dropout = 0.3
     epochs_top = 1
     iterations_top = 2
-    batch_size_top = 1024
+    batch_size_top = 128
     learning_rate_top = 1e-5
     epochs_all = 4
     iterations_all = 3
-    batch_size_all = 256
+    batch_size_all = 64
     learning_rate_all = 1e-5
     hyperparameters = {
         'segment_size': segment_size,
@@ -179,33 +176,30 @@ if __name__ == '__main__':
         'batch_size_all': batch_size_all,
         'learning_rate_all': learning_rate_all,
     }
-    data_path = "/home/stanfous/datasets/punctuation_model/data_dir_punctuator"
+    data_path = ""
     save_path = 'models/{}/'.format(datetime.now().strftime("%Y%m%d_%H%M%S"))
     os.mkdir(save_path)
     with open(save_path+'hyperparameters.json', 'w') as f:
         json.dump(hyperparameters, f)
 
     print('LOADING DATA...')
-    #data_train = load_file(os.path.join(data_path,'cleaned_leMonde_with_punct_for_punctuator.train.txt'))
-    #data_valid = load_file(os.path.join(data_path,'cleaned_leMonde_with_punct_for_punctuator.dev.txt'))
-    #data_test = load_file(os.path.join(data_path,'cleaned_leMonde_with_punct_for_punctuator.test.txt'))
+    data_train = load_file(os.path.join(data_path,'train.txt'))
+    data_valid = load_file(os.path.join(data_path,'dev.txt'))
+    data_test = load_file(os.path.join(data_path,'test.txt'))
 
-    data_train = load_file('train_sub.txt')
-    data_valid = load_file('train_sub.txt')
-    data_test = load_file('train_sub.txt')
+    #data_train = load_file('train_sub.txt')
+    #data_valid = load_file('train_sub.txt')
+    #data_test = load_file('train_sub.txt')
 
     tokenizer = CamembertTokenizer.from_pretrained('camembert-base')
 
     print('PREPROCESSING DATA...')
     X_train, y_train = encode_data(data_train, tokenizer, puncs, punctuation_enc, segment_size)
-    print("X_train : ", X_train)
-    print("y_train : ", y_train)
     X_valid, y_valid = encode_data(data_valid, tokenizer, puncs, punctuation_enc, segment_size)
 
     print('INITIALIZING MODEL...')
     output_size = len(punctuation_enc)
     bert_punc = nn.DataParallel(BertPunc(segment_size, output_size, dropout).cuda())
-    #bert_punc = BertPunc(segment_size, output_size, dropout).cpu()
 
     print('TRAINING TOP LAYER...')
     data_loader_train = create_data_loader(X_train, y_train, True, batch_size_top)
@@ -214,7 +208,7 @@ if __name__ == '__main__':
         p.requires_grad = False
     optimizer = optim.Adam(bert_punc.parameters(), lr=learning_rate_top)
     criterion = nn.CrossEntropyLoss()
-    bert_punc, optimizer, best_val_loss = train(bert_punc, optimizer, criterion, epochs_top, 
+    bert_punc, optimizer, best_val_loss = train(bert_punc, optimizer, criterion, epochs_top,
         data_loader_train, data_loader_valid, save_path, punctuation_enc, iterations_top, best_val_loss=1e9)
 
     print('TRAINING ALL LAYERS...')
@@ -224,5 +218,6 @@ if __name__ == '__main__':
         p.requires_grad = True
     optimizer = optim.Adam(bert_punc.parameters(), lr=learning_rate_all)
     criterion = nn.CrossEntropyLoss()
-    bert_punc, optimizer, best_val_loss = train(bert_punc, optimizer, criterion, epochs_all, 
+    bert_punc, optimizer, best_val_loss = train(bert_punc, optimizer, criterion, epochs_all,
         data_loader_train, data_loader_valid, save_path, punctuation_enc, iterations_all, best_val_loss=best_val_loss)
+

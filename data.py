@@ -1,6 +1,6 @@
-
 import numpy as np
 import torch
+import array
 from torch.utils.data import TensorDataset, DataLoader
 
 def load_file(filename):
@@ -30,12 +30,15 @@ def encode_data(data, tokenizer, puncs, punctuation_enc, segment_size):
             x = " ".join(x)
             x = tokenizer.tokenize(x)
             x = tokenizer.convert_tokens_to_ids(x)
-            x = tokenizer.encode(x, pad_to_max_length=True, max_length=segment_size)
+            x = tokenizer.encode(x, pad_to_max_length=True, truncation=True, padding_side="right", max_length=segment_size)
+            current_len_y = len(y)
+            y = y + [0]*(len(x) - current_len_y)
+            y = y[:len(x)]
             X.append(x)
             Y.append(y)
     return X, Y
 
 def create_data_loader(X, y, shuffle, batch_size):
-    data_set = TensorDataset(torch.from_numpy(np.array(X)).long(), torch.from_numpy(np.array(X)).long())
+    data_set = TensorDataset(torch.from_numpy(np.array(X)).long(), torch.from_numpy(np.array(y)).long())
     data_loader = DataLoader(data_set, batch_size=batch_size, shuffle=shuffle)
     return data_loader
