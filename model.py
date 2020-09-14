@@ -12,7 +12,7 @@ class BertPunc(nn.Module):
         self.segment_size = segment_size
         # self.bn = nn.BatchNorm1d(segment_size*self.bert_vocab_size)
         self.fc = nn.Linear(self.bert_vocab_size, output_size)
-        self.dropout = nn.Dropout(dropout)
+        #self.dropout = nn.Dropout(dropout)
 
     def forward(self, x):
         x = self.bert(x)

@@ -1,3 +1,4 @@
+import random
 import numpy as np
 import torch
 import array
@@ -16,24 +17,26 @@ def encode_data(data, tokenizer, puncs, punctuation_enc, segment_size):
     X = []
     Y = []
     for line in data:
-        x = []
+        x_token = line.split()
         y = []
-        for i, word in enumerate(line.split()):
-            if word in puncs:
-                #on masque le caractère ponctué
-                x.append("[MASK]")
-                y.append(punctuation_enc[word])
-            else:
-                x.insert(i+1, word)
-                y.append(punctuation_enc['O'])
-        if x:
-            x = " ".join(x)
-            x = tokenizer.tokenize(x)
-            x = tokenizer.convert_tokens_to_ids(x)
-            x = tokenizer.encode(x, pad_to_max_length=True, truncation=True, padding_side="right", max_length=segment_size)
-            current_len_y = len(y)
-            y = y + [0]*(len(x) - current_len_y)
-            y = y[:len(x)]
+        if len(x_token) > 1:
+            x_token = " ".join(x_token)
+            x_token = tokenizer.tokenize(x_token)
+            #number of [MASK] we add, 15% of the sentence
+            nb_masks = int(0.15*len(x_token)) + 1
+            #indices we will mask
+            random_indices = random.sample(range(1, len(x_token)), nb_masks)
+            for j in random_indices:
+                x_token[j] = '<mask>'
+            x_token = " ".join(x_token)
+            x = tokenizer.encode_plus(x_token, pad_to_max_length=True, add_special_tokens=True, truncation=True,
+                                      padding_side="right", max_length=segment_size, return_attention_mask=True)
+            x_token = tokenizer.convert_ids_to_tokens(x["input_ids"])
+            for i, word in enumerate(x_token):
+                if word in puncs:
+                    y.append(punctuation_enc[word])
+                else:
+                    y.append(punctuation_enc['TOKEN'])
             X.append(x)
             Y.append(y)
     return X, Y

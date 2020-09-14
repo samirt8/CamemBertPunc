@@ -141,20 +141,33 @@ def train(model, optimizer, criterion, epochs, data_loader_train, data_loader_va
 
 if __name__ == '__main__':
 
+    #punctuation_enc = {
+    #    'O': 0,
+    #    ',COMMA': 1,
+    #    '.PERIOD': 2,
+    #    '?QUESTIONMARK': 3,
+    #    ':COLON': 4,
+    #    '!EXCLAMATIONMARK': 5,
+    #    ';SEMICOLON': 6
+    #}
+
     punctuation_enc = {
-        'O': 0,
-        ',COMMA': 1,
-        '.PERIOD': 2,
-        '?QUESTIONMARK': 3,
-        ':COLON': 4,
-        '!EXCLAMATIONMARK': 5,
-        ';SEMICOLON': 6
+        'TOKEN': 0,
+        ',': 1,
+        '.': 2,
+        '▁?': 3,
+        '▁:': 4,
+        '▁!': 5,
+        '▁;': 6
     }
 
-    puncs = [
-        'O', ',COMMA', '.PERIOD', '?QUESTIONMARK', ':COLON', '!EXCLAMATIONMARK', ';SEMICOLON']
+    #puncs = [
+    #    'O', ',COMMA', '.PERIOD', '?QUESTIONMARK', ':COLON', '!EXCLAMATIONMARK', ';SEMICOLON']
 
-    segment_size = 16*len(puncs)
+    puncs = [
+        'TOKEN', ',', '.', '▁?', '▁:', '▁!', '▁;']
+
+    segment_size = 4*len(puncs)
     dropout = 0.3
     epochs_top = 1
     iterations_top = 2
@@ -184,8 +197,8 @@ if __name__ == '__main__':
 
     print('LOADING DATA...')
     data_train = load_file(os.path.join(data_path,'train.txt'))
-    data_valid = load_file(os.path.join(data_path,'dev.txt'))
-    data_test = load_file(os.path.join(data_path,'test.txt'))
+    data_valid = load_file(os.path.join(data_path,'train_sub.txt'))
+    data_test = load_file(os.path.join(data_path,'train_sub.txt'))
 
     #data_train = load_file('train_sub.txt')
     #data_valid = load_file('train_sub.txt')
@@ -211,13 +224,13 @@ if __name__ == '__main__':
     bert_punc, optimizer, best_val_loss = train(bert_punc, optimizer, criterion, epochs_top,
         data_loader_train, data_loader_valid, save_path, punctuation_enc, iterations_top, best_val_loss=1e9)
 
-    print('TRAINING ALL LAYERS...')
-    data_loader_train = create_data_loader(X_train, y_train, True, batch_size_all)
-    data_loader_valid = create_data_loader(X_valid, y_valid, False, batch_size_all)
-    for p in bert_punc.module.bert.parameters():
-        p.requires_grad = True
-    optimizer = optim.Adam(bert_punc.parameters(), lr=learning_rate_all)
-    criterion = nn.CrossEntropyLoss()
-    bert_punc, optimizer, best_val_loss = train(bert_punc, optimizer, criterion, epochs_all,
-        data_loader_train, data_loader_valid, save_path, punctuation_enc, iterations_all, best_val_loss=best_val_loss)
+    #print('TRAINING ALL LAYERS...')
+    #data_loader_train = create_data_loader(X_train, y_train, True, batch_size_all)
+    #data_loader_valid = create_data_loader(X_valid, y_valid, False, batch_size_all)
+    #for p in bert_punc.module.bert.parameters():
+    #    p.requires_grad = True
+    #optimizer = optim.Adam(bert_punc.parameters(), lr=learning_rate_all)
+    #criterion = nn.CrossEntropyLoss()
+    #bert_punc, optimizer, best_val_loss = train(bert_punc, optimizer, criterion, epochs_all,
+    #    data_loader_train, data_loader_valid, save_path, punctuation_enc, iterations_all, best_val_loss=best_val_loss)
 
