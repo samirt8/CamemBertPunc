@@ -18,8 +18,8 @@ import warnings
 
 warnings.filterwarnings("ignore", category=UndefinedMetricWarning)
 
-from model import BertPunc
-from data import load_file, encode_data, create_data_loader
+from model import BertPunc, BertPunc_ner
+from data import load_file, encode_data, encode_data3, create_data_loader
 
 
 def validate(model, criterion, epoch, epochs, iteration, iterations, data_loader_valid, save_path, train_loss,
@@ -90,7 +90,7 @@ def validate(model, criterion, epoch, epochs, iteration, iterations, data_loader
 
 def train(model, optimizer, criterion, epochs, data_loader_train, data_loader_valid, save_path, punctuation_enc, iterations=3, best_val_loss=1e9):
 
-    print_every = len(data_loader_train)//iterations+1
+    print_every = len(data_loader_train)//((iterations+1)*10)
     clip = 5
     best_model_path = None
     model.train()
@@ -152,26 +152,27 @@ if __name__ == '__main__':
     #}
 
     punctuation_enc = {
-        'TOKEN': 0,
-        ',': 1,
-        '.': 2,
-        '▁?': 3,
-        '▁:': 4,
-        '▁!': 5,
-        '▁;': 6
+        'PAD': 0,
+        'TOKEN': 1,
+        ',': 2,
+        '.': 3,
+        '▁?': 4,
+        '▁:': 5,
+        '▁!': 6,
+        '▁;': 7
     }
 
     #puncs = [
     #    'O', ',COMMA', '.PERIOD', '?QUESTIONMARK', ':COLON', '!EXCLAMATIONMARK', ';SEMICOLON']
 
     puncs = [
-        'TOKEN', ',', '.', '▁?', '▁:', '▁!', '▁;']
+        'PAD', 'TOKEN', ',', '.', '▁?', '▁:', '▁!', '▁;']
 
-    segment_size = 4*len(puncs)
+    segment_size = 128
     dropout = 0.3
     epochs_top = 1
     iterations_top = 2
-    batch_size_top = 128
+    batch_size_top = 64
     learning_rate_top = 1e-5
     epochs_all = 4
     iterations_all = 3
@@ -189,36 +190,38 @@ if __name__ == '__main__':
         'batch_size_all': batch_size_all,
         'learning_rate_all': learning_rate_all,
     }
-    data_path = ""
+    train_data_path = "/media/nas/samir-data/punctuation/all_datasets/data_dir_punctuator_wait"
+    data_path = "/media/nas/samir-data/punctuation/all_datasets/data_dir_punctuator_v3"
     save_path = 'models/{}/'.format(datetime.now().strftime("%Y%m%d_%H%M%S"))
     os.mkdir(save_path)
     with open(save_path+'hyperparameters.json', 'w') as f:
         json.dump(hyperparameters, f)
 
     print('LOADING DATA...')
-    data_train = load_file(os.path.join(data_path,'train.txt'))
-    data_valid = load_file(os.path.join(data_path,'train_sub.txt'))
-    data_test = load_file(os.path.join(data_path,'train_sub.txt'))
+    data_train = load_file(os.path.join(train_data_path,'all_datasets11.train.txt'))
+    data_valid = load_file(os.path.join(data_path,'subset_cleaned_leMonde_with_punct_v2_for_punctuator.train.txt'))
+    data_test = load_file(os.path.join(data_path,'subset_cleaned_leMonde_with_punct_v2_for_punctuator.dev.txt'))
 
-    #data_train = load_file('train_sub.txt')
+    #data_train = load_file('train.txt')
     #data_valid = load_file('train_sub.txt')
     #data_test = load_file('train_sub.txt')
 
     tokenizer = CamembertTokenizer.from_pretrained('camembert-base')
 
     print('PREPROCESSING DATA...')
-    X_train, y_train = encode_data(data_train, tokenizer, puncs, punctuation_enc, segment_size)
-    X_valid, y_valid = encode_data(data_valid, tokenizer, puncs, punctuation_enc, segment_size)
+    X_train, y_train = encode_data3(data_train, tokenizer, puncs, punctuation_enc, segment_size)
+    X_valid, y_valid = encode_data3(data_valid, tokenizer, puncs, punctuation_enc, segment_size)
 
     print('INITIALIZING MODEL...')
     output_size = len(punctuation_enc)
-    bert_punc = nn.DataParallel(BertPunc(segment_size, output_size, dropout).cuda())
+    #bert_punc = nn.DataParallel(BertPunc(segment_size, output_size, dropout).cuda())
+    bert_punc = nn.DataParallel(BertPunc_ner(segment_size, output_size).cuda())
 
     print('TRAINING TOP LAYER...')
     data_loader_train = create_data_loader(X_train, y_train, True, batch_size_top)
     data_loader_valid = create_data_loader(X_valid, y_valid, False, batch_size_top)
     for p in bert_punc.module.bert.parameters():
-        p.requires_grad = False
+        p.requires_grad = True
     optimizer = optim.Adam(bert_punc.parameters(), lr=learning_rate_top)
     criterion = nn.CrossEntropyLoss()
     bert_punc, optimizer, best_val_loss = train(bert_punc, optimizer, criterion, epochs_top,

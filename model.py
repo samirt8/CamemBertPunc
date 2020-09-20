@@ -1,5 +1,5 @@
 from torch import nn
-from transformers import CamembertForMaskedLM
+from transformers import CamembertForMaskedLM, CamembertForTokenClassification
 
 
 class BertPunc(nn.Module):
@@ -18,7 +18,23 @@ class BertPunc(nn.Module):
         x = self.bert(x)
         x = x[0]
         x = x.view(-1, self.bert_vocab_size)
-        b_size = x.size(0)
         x = self.fc(x)
+        x = x.view(-1, self.output_size, self.segment_size)
+        return x
+
+class BertPunc_ner(nn.Module):
+
+    def __init__(self, segment_size, output_size):
+        super(BertPunc_ner, self).__init__()
+        self.segment_size = segment_size
+        self.output_size = output_size
+        self.bert = CamembertForTokenClassification.from_pretrained('camembert-base',
+                                    num_labels = output_size,
+                                    output_attentions = False,
+                                    output_hidden_states = False)
+
+    def forward(self, x):
+        x = self.bert(x)
+        x = x[0]
         x = x.view(-1, self.output_size, self.segment_size)
         return x

@@ -10,50 +10,63 @@ import json
 from tqdm import tqdm
 from sklearn import metrics
 
-from model import BertPunc
-from data import load_file, preprocess_data, create_data_loader
+from model import BertPunc, BertPunc_ner
+from data import load_file, encode_data3, create_data_loader
 
-data_test = load_file('/media/nas/samir-data/punctuation/all_datasets/data_dir_punctuator_v3/sub_subset_cleaned_leMonde_with_punct_v2_for_punctuator.test.txt_clean')
+#data_test = load_file('/media/nas/samir-data/punctuation/all_datasets/data_dir_punctuator_v3/subset_cleaned_leMonde_with_punct_v2_for_punctuator.test.txt')
+data_test = load_file("train.txt")
 
 tokenizer = CamembertTokenizer.from_pretrained('camembert-base')
 
+#punctuation_enc = {
+#    'O': 0,
+#    ',COMMA': 1,
+#    '.PERIOD': 2,
+#    '?QUESTIONMARK': 3,
+#    ':COLON': 4,
+#    '!EXCLAMATIONMARK': 5,
+#    ';SEMICOLON': 6
+#}
+
 punctuation_enc = {
-    'O': 0,
-    ',COMMA': 1,
-    '.PERIOD': 2,
-    '?QUESTIONMARK': 3,
-    ':COLON': 4,
-    '!EXCLAMATIONMARK': 5,
-    ';SEMICOLON': 6
+	'PAD': 0,
+        'TOKEN': 1,
+        ',': 2,
+        '.': 3,
+        '▁?': 4,
+        '▁:': 5,
+        '▁!': 6,
+        '▁;': 7
 }
 
-# punctuation_enc = {
-#     'O': 0,
-#     'PERIOD': 1
-# }
+#puncs = [
+#    'O', ',COMMA', '.PERIOD', '?QUESTIONMARK', ':COLON', '!EXCLAMATIONMARK', ';SEMICOLON']
+
+puncs = [
+    'PAD', 'TOKEN', ',', '.', '▁?', '▁:', '▁!', '▁;']
 
 #segment_size = hyperparameters['segment_size']
-segment_size = 32
+segment_size = 128
 
-X_test, y_test = preprocess_data(data_test, tokenizer, punctuation_enc, segment_size)
+X_test, y_test = encode_data3(data_test, tokenizer, puncs, punctuation_enc, segment_size)
 
-print("data_test : ", data_test)
-print("X_test : ", X_test)
-print("y_test : ", y_test)
+#print("data_test : ", data_test)
+#print("X_test : ", X_test)
+#print("y_test : ", y_test)
 
 output_size = len(punctuation_enc)
 dropout = 0.3
-bert_punc = nn.DataParallel(BertPunc(segment_size, output_size, dropout).cuda())
+bert_punc = nn.DataParallel(BertPunc_ner(segment_size, output_size).cuda())
 #bert_punc = BertPunc(segment_size, output_size, dropout)
 
-MODEL_PATH = "/media/nas/samir-data/CamembertPunc/models_test/20200902_173211/model"
+MODEL_PATH = "/media/nas/samir-data/CamemBertPunc/models/20200918_153528/model"
 #checkpoint = torch.load(MODEL_PATH, map_location="cpu")
 
 #bert_punc.load_state_dict(checkpoint, strict=False)
 
-checkpoint = torch.load(MODEL_PATH)
+#checkpoint = torch.load(MODEL_PATH)
 
-batch_size = 16
+batch_size = 8
 data_loader_test = create_data_loader(X_test, y_test, False, batch_size)
 #data_loader_test_asr = create_data_loader(X_test_asr, y_test_asr, False, batch_size)
 
@@ -66,15 +79,15 @@ def predictions(data_loader):
             output = bert_punc(inputs)
             y_pred += list(output.argmax(dim=1).cpu().data.numpy().flatten())
             y_true += list(labels.cpu().data.numpy().flatten())
-            #print("y_pred : ", y_pred)
-            #print("y_true : ", y_true)
+            #print("y_pred : ", list(output.argmax(dim=1).cpu().data.numpy().flatten()))
+            #print("y_true : ", list(labels.cpu().data.numpy().flatten()))
     return y_pred, y_true
 
 def evaluation(y_pred, y_test):
     precision, recall, f1, _ = metrics.precision_recall_fscore_support(
-        y_test, y_pred, average=None, labels=[1, 2, 3, 4, 5, 6])
+        y_test, y_pred, average=None, labels=[0, 1, 2, 3, 4, 5, 6])
     overall = metrics.precision_recall_fscore_support(
-        y_test, y_pred, average='macro', labels=[1, 2, 3, 4, 5, 6])
+        y_test, y_pred, average='macro', labels=[0, 1, 2, 3, 4, 5, 6])
     result = pd.DataFrame(
         np.array([precision, recall, f1]),
         columns=list(punctuation_enc.keys())[1:],
@@ -86,4 +99,4 @@ def evaluation(y_pred, y_test):
 y_pred_test, y_true_test = predictions(data_loader_test)
 
 eval_test = evaluation(y_pred_test, y_true_test)
-eval_test
+print(eval_test)
