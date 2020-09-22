@@ -34,7 +34,6 @@ def validate(model, criterion, epoch, epochs, iteration, iterations, data_loader
     for inputs, labels in tqdm(data_loader_valid, total=len(data_loader_valid)):
         with torch.no_grad():
             inputs, labels = inputs.cuda(), labels.cuda()
-            # inputs, labels = inputs.cpu(), labels.cpu()
             output = model(inputs)
             val_loss = criterion(output, labels)
             val_losses.append(val_loss.cpu().data.numpy())
@@ -90,7 +89,7 @@ def validate(model, criterion, epoch, epochs, iteration, iterations, data_loader
 
 def train(model, optimizer, criterion, epochs, data_loader_train, data_loader_valid, save_path, punctuation_enc, iterations=3, best_val_loss=1e9):
 
-    print_every = len(data_loader_train)//((iterations+1)*10)
+    print_every = len(data_loader_train)//((iterations+1))
     clip = 5
     best_model_path = None
     model.train()
@@ -142,42 +141,53 @@ def train(model, optimizer, criterion, epochs, data_loader_train, data_loader_va
 if __name__ == '__main__':
 
     #punctuation_enc = {
-    #    'O': 0,
-    #    ',COMMA': 1,
-    #    '.PERIOD': 2,
-    #    '?QUESTIONMARK': 3,
-    #    ':COLON': 4,
-    #    '!EXCLAMATIONMARK': 5,
-    #    ';SEMICOLON': 6
+    #    'PAD': 0,
+    #    'TOKEN': 1,
+    #    ',': 2,
+    #    '.': 3,
+    #    '▁?': 4,
+    #    '▁:': 5,
+    #    '▁!': 6,
+    #    '▁;': 7
     #}
 
     punctuation_enc = {
-        'PAD': 0,
-        'TOKEN': 1,
+            'PAD': 0,
+            'TOKEN': 1,
+            ',': 2,
+            '.': 3
+            }
+
+    #punctuation_enc_validation = {
+    #    ',': 2,
+    #    '.': 3,
+    #    '▁?': 4,
+    #    '▁:': 5,
+    #    '▁!': 6,
+    #    '▁;': 7
+    #}
+
+    punctuation_enc_validation = {
         ',': 2,
-        '.': 3,
-        '▁?': 4,
-        '▁:': 5,
-        '▁!': 6,
-        '▁;': 7
-    }
+        '.': 3
+        }
 
     #puncs = [
-    #    'O', ',COMMA', '.PERIOD', '?QUESTIONMARK', ':COLON', '!EXCLAMATIONMARK', ';SEMICOLON']
+    #    'PAD', 'TOKEN', ',', '.', '▁?', '▁:', '▁!', '▁;']
 
     puncs = [
-        'PAD', 'TOKEN', ',', '.', '▁?', '▁:', '▁!', '▁;']
+        'PAD', 'TOKEN', ',', '.']
 
-    segment_size = 128
+    segment_size = 64
     dropout = 0.3
-    epochs_top = 1
+    epochs_top = 2
     iterations_top = 2
-    batch_size_top = 64
-    learning_rate_top = 1e-5
-    epochs_all = 4
-    iterations_all = 3
-    batch_size_all = 64
-    learning_rate_all = 1e-5
+    batch_size_top = 128
+    learning_rate_top = 1e-4
+    epochs_all = 8
+    iterations_all = 2
+    batch_size_all = 128
+    learning_rate_all = 1e-4
     hyperparameters = {
         'segment_size': segment_size,
         'dropout': dropout,
@@ -198,9 +208,10 @@ if __name__ == '__main__':
         json.dump(hyperparameters, f)
 
     print('LOADING DATA...')
-    data_train = load_file(os.path.join(train_data_path,'all_datasets11.train.txt'))
-    data_valid = load_file(os.path.join(data_path,'subset_cleaned_leMonde_with_punct_v2_for_punctuator.train.txt'))
-    data_test = load_file(os.path.join(data_path,'subset_cleaned_leMonde_with_punct_v2_for_punctuator.dev.txt'))
+    #data_train = load_file(os.path.join(train_data_path,'all_datasets11.train.txt'))
+    data_train = load_file(os.path.join(data_path, 'subset_cleaned_leMonde_with_punct_v2_for_punctuator.train.txt'))
+    data_valid = load_file(os.path.join(data_path,'subset_cleaned_leMonde_with_punct_v2_for_punctuator.test.txt'))
+    #data_test = load_file(os.path.join(data_path,'subset_cleaned_leMonde_with_punct_v2_for_punctuator.test.txt'))
 
     #data_train = load_file('train.txt')
     #data_valid = load_file('train_sub.txt')
