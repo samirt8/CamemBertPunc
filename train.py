@@ -140,47 +140,47 @@ def train(model, optimizer, criterion, epochs, data_loader_train, data_loader_va
 
 if __name__ == '__main__':
 
-    #punctuation_enc = {
-    #    'PAD': 0,
-    #    'TOKEN': 1,
-    #    ',': 2,
-    #    '.': 3,
-    #    '▁?': 4,
-    #    '▁:': 5,
-    #    '▁!': 6,
-    #    '▁;': 7
-    #}
-
     punctuation_enc = {
-            'PAD': 0,
-            'TOKEN': 1,
-            ',': 2,
-            '.': 3
-            }
+        'PAD': 0,
+        'TOKEN': 1,
+        ',': 2,
+        '.': 3,
+        '▁?': 4,
+        '▁:': 5,
+        '▁!': 6,
+        '▁;': 7
+    }
 
-    #punctuation_enc_validation = {
-    #    ',': 2,
-    #    '.': 3,
-    #    '▁?': 4,
-    #    '▁:': 5,
-    #    '▁!': 6,
-    #    '▁;': 7
-    #}
+    #punctuation_enc = {
+    #        'PAD': 0,
+    #        'TOKEN': 1,
+    #        ',': 2,
+    #        '.': 3
+    #        }
 
     punctuation_enc_validation = {
         ',': 2,
-        '.': 3
-        }
+        '.': 3,
+        '▁?': 4,
+        '▁:': 5,
+        '▁!': 6,
+        '▁;': 7
+    }
 
-    #puncs = [
-    #    'PAD', 'TOKEN', ',', '.', '▁?', '▁:', '▁!', '▁;']
+    #punctuation_enc_validation = {
+    #    ',': 2,
+    #    '.': 3
+    #    }
 
     puncs = [
-        'PAD', 'TOKEN', ',', '.']
+        'PAD', 'TOKEN', ',', '.', '▁?', '▁:', '▁!', '▁;']
+
+    #puncs = [
+    #    'PAD', 'TOKEN', ',', '.']
 
     segment_size = 64
     dropout = 0.3
-    epochs_top = 2
+    epochs_top = 7
     iterations_top = 2
     batch_size_top = 128
     learning_rate_top = 1e-4
@@ -201,6 +201,7 @@ if __name__ == '__main__':
         'learning_rate_all': learning_rate_all,
     }
     train_data_path = "/media/nas/samir-data/punctuation/all_datasets/data_dir_punctuator_wait"
+    train_data_path2 = "/media/nas/samir-data/punctuation/all_datasets/data_europarl/training-monolingual-europarl"
     data_path = "/media/nas/samir-data/punctuation/all_datasets/data_dir_punctuator_v3"
     save_path = 'models/{}/'.format(datetime.now().strftime("%Y%m%d_%H%M%S"))
     os.mkdir(save_path)
@@ -209,7 +210,8 @@ if __name__ == '__main__':
 
     print('LOADING DATA...')
     #data_train = load_file(os.path.join(train_data_path,'all_datasets11.train.txt'))
-    data_train = load_file(os.path.join(data_path, 'subset_cleaned_leMonde_with_punct_v2_for_punctuator.train.txt'))
+    data_train = load_file(os.path.join(train_data_path2, 'europarl-v7.fr_cleaned.txt'))
+    #data_train = load_file(os.path.join(data_path, 'subset_cleaned_leMonde_with_punct_v2_for_punctuator.train.txt'))
     data_valid = load_file(os.path.join(data_path,'subset_cleaned_leMonde_with_punct_v2_for_punctuator.test.txt'))
     #data_test = load_file(os.path.join(data_path,'subset_cleaned_leMonde_with_punct_v2_for_punctuator.test.txt'))
 

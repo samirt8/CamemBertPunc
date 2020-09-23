@@ -88,7 +88,7 @@ def encode_data3(data, tokenizer, puncs, punctuation_enc, segment_size):
             y = []
             x_token = tokenizer.convert_ids_to_tokens(x["input_ids"])
             x_token_without_punc = []
-            i = 1
+            i = 0
             while(i < len(x_token)):
                 if x_token[i] in puncs:
                     y.append(punctuation_enc[x_token[i]])

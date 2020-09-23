@@ -14,18 +14,15 @@ from model import BertPunc, BertPunc_ner
 from data import load_file, encode_data3, create_data_loader
 
 data_test = load_file('/media/nas/samir-data/punctuation/all_datasets/data_dir_punctuator_v3/subset_cleaned_leMonde_with_punct_v2_for_punctuator.test.txt')
-#data_test = load_file("train.txt")
+#data_test = load_file("/media/nas/samir-data/stanfous/Text_processing4STT/EVAL_data/dev.ester.clean")
 
 tokenizer = CamembertTokenizer.from_pretrained('camembert-base')
 
 #punctuation_enc = {
-#    'O': 0,
-#    ',COMMA': 1,
-#    '.PERIOD': 2,
-#    '?QUESTIONMARK': 3,
-#    ':COLON': 4,
-#    '!EXCLAMATIONMARK': 5,
-#    ';SEMICOLON': 6
+#    'PAD': 0,
+#    'TOKEN': 1,
+#    ',': 2,
+#    '.': 3
 #}
 
 punctuation_enc = {
@@ -52,8 +49,15 @@ inv_punctuation_enc_modify = {
 	7: '▁;'
 }
 
+#inv_punctuation_enc_modify = {
+#        0: '',
+#        1: '',
+#        2: ',',
+#        3: '.'
+#}
+
 #puncs = [
-#    'O', ',COMMA', '.PERIOD', '?QUESTIONMARK', ':COLON', '!EXCLAMATIONMARK', ';SEMICOLON']
+#    'PAD', 'TOKEN', ',', '.']
 
 puncs = [
     'PAD', 'TOKEN', ',', '.', '▁?', '▁:', '▁!', '▁;']
@@ -70,8 +74,10 @@ bert_punc = nn.DataParallel(BertPunc_ner(segment_size, output_size).cuda())
 
 MODEL_PATH = "/media/nas/samir-data/CamemBertPunc/models/20200921_220903/model"
 #checkpoint = torch.load(MODEL_PATH, map_location="cpu")
+checkpoint = torch.load(MODEL_PATH)
 
 #bert_punc.load_state_dict(checkpoint, strict=False)
+bert_punc.load_state_dict(checkpoint)
 
 #checkpoint = torch.load(MODEL_PATH)
 
@@ -89,22 +95,25 @@ def predictions(data_loader):
             y_pred += list(output.argmax(dim=1).cpu().data.numpy().flatten())
             y_true += list(labels.cpu().data.numpy().flatten())
             for i, sentence in enumerate(inputs):
+                sentence_input = tokenizer.convert_ids_to_tokens(sentence)
                 sentence_output = [inv_punctuation_enc_modify.get(item,item) for item in output.argmax(dim=1)[i].cpu().data.numpy()]
-                sentence_output = tokenizer.convert_tokens_to_ids(sentence_output)
                 result_sentence = [None]*(len(sentence)+len(sentence_output))
-                result_sentence[::2] = sentence
+                result_sentence[::2] = sentence_input
                 result_sentence[1::2] = sentence_output
-                print("result_sentence : ", tokenizer.decode(result_sentence, skip_special_tokens=True))
+                result_sentence = list(filter(lambda a: a != '', result_sentence))
+                result_sentence = tokenizer.convert_tokens_to_ids(result_sentence)
+                result_sentence = tokenizer.decode(result_sentence, skip_special_tokens=True)
+                print(result_sentence)
     return y_pred, y_true
 
 def evaluation(y_pred, y_test):
     precision, recall, f1, _ = metrics.precision_recall_fscore_support(
-        y_test, y_pred, average=None, labels=[0, 1, 2, 3, 4, 5, 6])
+        y_test, y_pred, average=None, labels=[2, 3, 4, 5, 6, 7])
     overall = metrics.precision_recall_fscore_support(
-        y_test, y_pred, average='macro', labels=[0, 1, 2, 3, 4, 5, 6])
+        y_test, y_pred, average='macro', labels=[2, 3, 4, 5, 6, 7])
     result = pd.DataFrame(
         np.array([precision, recall, f1]),
-        columns=list(punctuation_enc.keys())[1:],
+        columns=list(punctuation_enc.keys())[2:],
         index=['Precision', 'Recall', 'F1']
     )
     result['OVERALL'] = overall[:3]
