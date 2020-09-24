@@ -140,43 +140,45 @@ def train(model, optimizer, criterion, epochs, data_loader_train, data_loader_va
 
 if __name__ == '__main__':
 
-    punctuation_enc = {
-        'PAD': 0,
-        'TOKEN': 1,
-        ',': 2,
-        '.': 3,
-        '▁?': 4,
-        '▁:': 5,
-        '▁!': 6,
-        '▁;': 7
-    }
-
     #punctuation_enc = {
-    #        'PAD': 0,
-    #        'TOKEN': 1,
-    #        ',': 2,
-    #        '.': 3
-    #        }
+    #    'PAD': 0,
+    #    'TOKEN': 1,
+    #    ',': 2,
+    #    '.': 3,
+    #    '▁?': 4,
+    #    '▁:': 5,
+    #    '▁!': 6,
+    #    '▁;': 7
+    #}
+
+    punctuation_enc = {
+            'PAD': 0,
+            'TOKEN': 1,
+            ',': 2,
+            '.': 3,
+            '?': 4
+            }
+
+    #punctuation_enc_validation = {
+    #    ',': 2,
+    #    '.': 3,
+    #    '▁?': 4,
+    #    '▁:': 5,
+    #    '▁!': 6,
+    #    '▁;': 7
+    #}
 
     punctuation_enc_validation = {
         ',': 2,
         '.': 3,
-        '▁?': 4,
-        '▁:': 5,
-        '▁!': 6,
-        '▁;': 7
-    }
-
-    #punctuation_enc_validation = {
-    #    ',': 2,
-    #    '.': 3
-    #    }
-
-    puncs = [
-        'PAD', 'TOKEN', ',', '.', '▁?', '▁:', '▁!', '▁;']
+        '?': 4
+        }
 
     #puncs = [
-    #    'PAD', 'TOKEN', ',', '.']
+    #    'PAD', 'TOKEN', ',', '.', '▁?', '▁:', '▁!', '▁;']
+
+    puncs = [
+        'PAD', 'TOKEN', ',', '.', '?']
 
     segment_size = 64
     dropout = 0.3
