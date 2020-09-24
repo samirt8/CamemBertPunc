@@ -19,7 +19,7 @@ import warnings
 warnings.filterwarnings("ignore", category=UndefinedMetricWarning)
 
 from model import BertPunc, BertPunc_ner
-from data import load_file, encode_data, encode_data3, create_data_loader
+from data import load_file, load_file2, encode_data3, create_data_loader
 
 
 def validate(model, criterion, epoch, epochs, iteration, iterations, data_loader_valid, save_path, train_loss,
@@ -180,6 +180,7 @@ if __name__ == '__main__':
     puncs = [
         'PAD', 'TOKEN', ',', '.', '?']
 
+    segment_word = 20
     segment_size = 64
     dropout = 0.3
     epochs_top = 7
@@ -211,15 +212,10 @@ if __name__ == '__main__':
         json.dump(hyperparameters, f)
 
     print('LOADING DATA...')
-    #data_train = load_file(os.path.join(train_data_path,'all_datasets11.train.txt'))
-    data_train = load_file(os.path.join(train_data_path2, 'europarl-v7.fr_cleaned.txt'))
-    #data_train = load_file(os.path.join(data_path, 'subset_cleaned_leMonde_with_punct_v2_for_punctuator.train.txt'))
-    data_valid = load_file(os.path.join(data_path,'subset_cleaned_leMonde_with_punct_v2_for_punctuator.test.txt'))
-    #data_test = load_file(os.path.join(data_path,'subset_cleaned_leMonde_with_punct_v2_for_punctuator.test.txt'))
-
-    #data_train = load_file('train.txt')
-    #data_valid = load_file('train_sub.txt')
-    #data_test = load_file('train_sub.txt')
+    data_train = load_file2(os.path.join(train_data_path2, 'europarl-v7.fr_cleaned.txt'), segment_word)
+    data_valid = load_file2(os.path.join(data_path,'subset_cleaned_leMonde_with_punct_v2_for_punctuator.test.txt'), segment_word)
+    #data_train = load_file2('train.txt', segment_word)
+    #data_valid = load_file2('train_sub.txt', segment_word)
 
     tokenizer = CamembertTokenizer.from_pretrained('camembert-base')
 

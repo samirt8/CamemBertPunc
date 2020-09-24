@@ -10,6 +10,19 @@ def load_file(filename):
         data = f.readlines()
     return data
 
+def load_file2(filename, segment_word):
+    """
+    In this version of load_file, we split the sentence every x tokens and deal with it
+    segment word is the number of words in each segment
+    """
+    data = []
+    with open(filename, 'r', encoding='utf-8') as f:
+        huge_list = f.read().split()
+        len_huge_list = len(huge_list)
+        for i in range(len_huge_list//segment_word):
+            data.append(" ".join(huge_list[i*segment_word:(i+1)*segment_word]))
+    return data
+
 def encode_data(data, tokenizer, puncs, punctuation_enc, segment_size):
     """
     Converts words to (BERT) tokens and punctuation to given encoding.
