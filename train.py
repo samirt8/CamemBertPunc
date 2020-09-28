@@ -155,8 +155,7 @@ if __name__ == '__main__':
             'PAD': 0,
             'TOKEN': 1,
             ',': 2,
-            '.': 3,
-            '?': 4
+            '.': 3
             }
 
     #punctuation_enc_validation = {
@@ -170,23 +169,22 @@ if __name__ == '__main__':
 
     punctuation_enc_validation = {
         ',': 2,
-        '.': 3,
-        '?': 4
+        '.': 3
         }
 
     #puncs = [
     #    'PAD', 'TOKEN', ',', '.', '▁?', '▁:', '▁!', '▁;']
 
     puncs = [
-        'PAD', 'TOKEN', ',', '.', '?']
+        'PAD', 'TOKEN', ',', '.']
 
-    segment_word = 20
-    segment_size = 64
+    segment_word = 64
+    segment_size = 128
     dropout = 0.3
-    epochs_top = 7
+    epochs_top = 4
     iterations_top = 2
-    batch_size_top = 128
-    learning_rate_top = 1e-4
+    batch_size_top = 64
+    learning_rate_top = 1e-5
     epochs_all = 8
     iterations_all = 2
     batch_size_all = 128
@@ -212,8 +210,9 @@ if __name__ == '__main__':
         json.dump(hyperparameters, f)
 
     print('LOADING DATA...')
+    #data_train = load_file2(os.path.join(train_data_path, 'all_datasets11.train.txt'), segment_word)
     data_train = load_file2(os.path.join(train_data_path2, 'europarl-v7.fr_cleaned.txt'), segment_word)
-    data_valid = load_file2(os.path.join(data_path,'subset_cleaned_leMonde_with_punct_v2_for_punctuator.test.txt'), segment_word)
+    data_valid = load_file2(os.path.join(data_path,'subset_cleaned_leMonde_with_punct_v2_for_punctuator.train.txt'), segment_word)
     #data_train = load_file2('train.txt', segment_word)
     #data_valid = load_file2('train_sub.txt', segment_word)
 

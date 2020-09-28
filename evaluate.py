@@ -14,10 +14,13 @@ from tqdm import tqdm
 from sklearn import metrics
 
 from model import BertPunc, BertPunc_ner
-from data import load_file, encode_data3, create_data_loader
+from data import load_file2, encode_data3, create_data_loader
 
-data_test = load_file('/media/nas/samir-data/punctuation/all_datasets/data_dir_punctuator_v3/subset_cleaned_leMonde_with_punct_v2_for_punctuator.test_bad_tokens.txt')
-#data_test = load_file("/media/nas/samir-data/stanfous/Text_processing4STT/EVAL_data/dev.ester.clean")
+segment_word = 64
+
+#data_test = load_file2('/media/nas/samir-data/punctuation/all_datasets/data_dir_punctuator_v3/subset_cleaned_leMonde_with_punct_v2_for_punctuator.test.txt', segment_word)
+data_test = load_file2("dev.ester.clean", segment_word)
+#data_test = load_file2("train.txt", segment_word)
 
 tokenizer = CamembertTokenizer.from_pretrained('camembert-base')
 
@@ -25,8 +28,7 @@ punctuation_enc = {
     'PAD': 0,
     'TOKEN': 1,
     ',': 2,
-    '.': 3,
-    '▁?':4
+    '.': 3
 }
 
 #punctuation_enc = {
@@ -57,17 +59,16 @@ inv_punctuation_enc_modify = {
         0: '',
         1: '',
         2: ',',
-        3: '.',
-        4: '▁?'
+        3: '.'
 }
 
 puncs = [
-    'PAD', 'TOKEN', ',', '.', '▁?']
+    'PAD', 'TOKEN', ',', '.']
 
 #puncs = [
 #    'PAD', 'TOKEN', ',', '.', '▁?', '▁:', '▁!', '▁;']
 
-segment_size = 64
+segment_size = 128
 
 X_test, y_test = encode_data3(data_test, tokenizer, puncs, punctuation_enc, segment_size)
 
@@ -76,7 +77,7 @@ dropout = 0.3
 #bert_punc = nn.DataParallel(BertPunc_ner(segment_size, output_size).cpu())
 bert_punc = BertPunc_ner(segment_size, output_size)
 
-MODEL_PATH = "/media/nas/samir-data/CamemBertPunc/models/20200924_092535/model"
+MODEL_PATH = "/media/nas/samir-data/CamemBertPunc/models/20200927_095025/model"
 checkpoint = torch.load(MODEL_PATH, map_location=lambda storage, loc: storage)
 
 from collections import OrderedDict
@@ -99,6 +100,8 @@ def predictions(data_loader):
         with torch.no_grad():
             #inputs, labels = inputs.cuda(), labels.cuda()
             output = bert_punc(inputs)
+            print("output0 : ", output[0])
+            print("output1 : ", output[1])
             y_pred += list(output.argmax(dim=1).cpu().data.numpy().flatten())
             y_true += list(labels.cpu().data.numpy().flatten())
             for i, sentence in enumerate(inputs):
@@ -115,9 +118,9 @@ def predictions(data_loader):
 
 def evaluation(y_pred, y_test):
     precision, recall, f1, _ = metrics.precision_recall_fscore_support(
-        y_test, y_pred, average=None, labels=[2, 3, 4])
+        y_test, y_pred, average=None, labels=[2, 3])
     overall = metrics.precision_recall_fscore_support(
-        y_test, y_pred, average='macro', labels=[2, 3, 4])
+        y_test, y_pred, average='macro', labels=[2, 3])
     result = pd.DataFrame(
         np.array([precision, recall, f1]),
         columns=list(punctuation_enc.keys())[2:],
