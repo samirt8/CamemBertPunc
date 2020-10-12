@@ -5,6 +5,8 @@ import array
 from torch.utils.data import TensorDataset, DataLoader
 from keras.preprocessing.sequence import pad_sequences
 
+#from deepsegment import DeepSegment
+
 def load_file(filename):
     with open(filename, 'r', encoding='utf-8') as f:
         data = f.readlines()
@@ -96,23 +98,39 @@ def encode_data3(data, tokenizer, puncs, punctuation_enc, segment_size):
     Y = []
     for line in data:
         if len(line.split()) > 5:
-            x = tokenizer.encode_plus(line, pad_to_max_length=False, add_special_tokens=False, truncation=False,
-                                      return_attention_mask=True)
+            x = tokenizer.encode_plus(line, pad_to_max_length=False, add_special_tokens=False, truncation=False, return_attention_mask=True)
             y = []
             x_token = tokenizer.convert_ids_to_tokens(x["input_ids"])
+            x_token = [x for x in x_token if x != '▁']
+            for i in range(len(x_token)):
+                if x_token[i] == ".":
+                    x_token.insert(i+1, "</s>")
+            #print("x_token : ", x_token)
+            #if the first element of x_token is a punc, we delete it
+            if x_token[0] in puncs:
+                del x_token[0]
+            #list x_token without the punctuation
             x_token_without_punc = []
-            i = 0
-            while(i < len(x_token)):
+            for i in range(len(x_token)):
                 if x_token[i] in puncs:
                     y.append(punctuation_enc[x_token[i]])
-                    del x_token[i]
                 else:
+                    y.append(punctuation_enc["TOKEN"])
                     x_token_without_punc.append(x_token[i])
-                    y.append(punctuation_enc['TOKEN'])
-                    i+=1
-            x = tokenizer.encode_plus(x_token_without_punc, pad_to_max_length=True, add_special_tokens=True, truncation=True, max_length=segment_size, return_attention_mask=True)
+            print("y : ", y)
+            j = 1
+            while(j < len(y)):
+                if y[j] != punctuation_enc["TOKEN"]:
+                    del y[j-1]
+                else:
+                    j += 1
+            x = tokenizer.encode_plus(x_token_without_punc, pad_to_max_length=True, add_special_tokens=False, truncation=True, max_length=segment_size, return_attention_mask=True)
+            x_decode = tokenizer.convert_ids_to_tokens(x["input_ids"])
+            #print("x_decode : ", x_decode)
+            #print("x : ", x["input_ids"])
             X.append(x["input_ids"])
             Y.append(y)
+            #print("y : ", y)
     Y = pad_sequences([y for y in Y], maxlen=segment_size, dtype="long", value=0,
                         truncating="post", padding="post")
     return X, Y

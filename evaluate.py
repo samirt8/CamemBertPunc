@@ -14,12 +14,13 @@ from tqdm import tqdm
 from sklearn import metrics
 
 from model import BertPunc, BertPunc_ner
-from data import load_file2, encode_data3, create_data_loader
+from data import load_file, load_file2, encode_data3, create_data_loader
 
-segment_word = 64
+segment_word = 12
 
 #data_test = load_file2('/media/nas/samir-data/punctuation/all_datasets/data_dir_punctuator_v3/subset_cleaned_leMonde_with_punct_v2_for_punctuator.test.txt', segment_word)
 data_test = load_file2("dev.ester.clean", segment_word)
+#data_test = load_file("dev.ester.clean")
 #data_test = load_file2("train.txt", segment_word)
 
 tokenizer = CamembertTokenizer.from_pretrained('camembert-base')
@@ -68,7 +69,7 @@ puncs = [
 #puncs = [
 #    'PAD', 'TOKEN', ',', '.', '▁?', '▁:', '▁!', '▁;']
 
-segment_size = 128
+segment_size = 25
 
 X_test, y_test = encode_data3(data_test, tokenizer, puncs, punctuation_enc, segment_size)
 
@@ -77,7 +78,9 @@ dropout = 0.3
 #bert_punc = nn.DataParallel(BertPunc_ner(segment_size, output_size).cpu())
 bert_punc = BertPunc_ner(segment_size, output_size)
 
-MODEL_PATH = "/media/nas/samir-data/CamemBertPunc/models/20200927_095025/model"
+#underfit => 20201001_143458 (fonctionne bien)
+#overfit => 0200930_111537
+MODEL_PATH = "/media/nas/samir-data/CamemBertPunc/models/20201001_143458/model"
 checkpoint = torch.load(MODEL_PATH, map_location=lambda storage, loc: storage)
 
 from collections import OrderedDict
@@ -89,7 +92,7 @@ for k, v in checkpoint.items():
 #load params
 bert_punc.load_state_dict(new_checkpoint)
 
-batch_size = 128
+batch_size = 32
 data_loader_test = create_data_loader(X_test, y_test, False, batch_size)
 #data_loader_test_asr = create_data_loader(X_test_asr, y_test_asr, False, batch_size)
 
@@ -100,20 +103,28 @@ def predictions(data_loader):
         with torch.no_grad():
             #inputs, labels = inputs.cuda(), labels.cuda()
             output = bert_punc(inputs)
-            print("output0 : ", output[0])
-            print("output1 : ", output[1])
+            #print("output0 : ", output[0])
+            #print("output1 : ", output[1])
             y_pred += list(output.argmax(dim=1).cpu().data.numpy().flatten())
             y_true += list(labels.cpu().data.numpy().flatten())
+            result_sentences = []
             for i, sentence in enumerate(inputs):
                 sentence_input = tokenizer.convert_ids_to_tokens(sentence)
-                sentence_output = [inv_punctuation_enc_modify.get(item,item) for item in output.argmax(dim=1)[i].cpu().data.numpy()]
-                result_sentence = [None]*(len(sentence)+len(sentence_output))
+                sentence_output = ['']+[inv_punctuation_enc_modify.get(item,item) for item in output.argmax(dim=1)[i].cpu().data.numpy()][:-1]
+                result_sentence = [None]*(len(sentence_input)+len(sentence_output))
+                #print("sentence input : ", sentence_input)
+                #print("sentence output : ", sentence_output)
                 result_sentence[::2] = sentence_input
                 result_sentence[1::2] = sentence_output
+                #print("result_sentence : ", result_sentence)
                 result_sentence = list(filter(lambda a: a != '', result_sentence))
                 result_sentence = tokenizer.convert_tokens_to_ids(result_sentence)
                 result_sentence = tokenizer.decode(result_sentence, skip_special_tokens=True)
-                print(result_sentence)
+                result_sentences.append(result_sentence)
+            result_sentences = " ".join(result_sentences)
+            result_sentences = result_sentences.split(".")
+            result_sentences = [result_sentence+"." for result_sentence in result_sentences]
+            print("\n".join(result_sentences))
     return y_pred, y_true
 
 def evaluation(y_pred, y_test):
