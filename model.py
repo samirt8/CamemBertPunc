@@ -30,9 +30,11 @@ class BertPunc_ner(nn.Module):
         self.output_size = output_size
         self.bert = CamembertForTokenClassification.from_pretrained('camembert-base',
                                     num_labels = output_size,
-                                    output_attentions = False,
+                                    output_attentions = False, #True
                                     output_hidden_states = False)
 
+    #def forward(self, x, attention_masks):
+        #x = self.bert(x, attention_mask=attention_masks)
     def forward(self, x):
         x = self.bert(x)
         x = x[0]

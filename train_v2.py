@@ -20,7 +20,7 @@ import warnings
 warnings.filterwarnings("ignore", category=UndefinedMetricWarning)
 
 from model import BertPunc, BertPunc_ner
-from data import load_file, load_file2, encode_data3, create_data_loader
+from data import load_file, load_file2, encode_data3, create_data_loader, create_data_loader_without_attentions
 
 
 def validate(model, criterion, epoch, epochs, iteration, iterations, data_loader_valid, save_path, train_loss,
@@ -32,10 +32,11 @@ def validate(model, criterion, epoch, epochs, iteration, iterations, data_loader
     label_keys = list(punctuation_enc.keys())
     label_vals = list(punctuation_enc.values())
 
-    for inputs, attentions, labels in tqdm(data_loader_valid, total=len(data_loader_valid)):
+    for inputs, labels in tqdm(data_loader_valid, total=len(data_loader_valid)):
         with torch.no_grad():
-            inputs, attentions, labels = inputs.cuda(), attentions.cuda(), labels.cuda()
-            output = model(inputs, attentions)
+            inputs, labels = inputs.cuda(), labels.cuda()
+            #output = model(inputs, attentions)
+            output = model(inputs)
             val_loss = criterion(output, labels)
             val_losses.append(val_loss.cpu().data.numpy())
 
@@ -101,13 +102,14 @@ def train(model, optimizer, criterion, epochs, data_loader_train, data_loader_va
         counter = 1
         iteration = 1
 
-        for inputs, attentions, labels in data_loader_train:
+        for inputs, labels in data_loader_train:
 
-            inputs, attentions, labels = inputs.cuda(), attentions.cuda(), labels.cuda()
+            inputs, labels = inputs.cuda(), labels.cuda()
             inputs.requires_grad = False
-            attentions.requires_grad = False
+            #attentions.requires_grad = False
             labels.requires_grad = False
-            output = model(inputs, attentions)
+            #output = model(inputs, attentions)
+            output = model(inputs)
             loss = criterion(output, labels)
             loss.backward()
             nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
@@ -181,16 +183,16 @@ if __name__ == '__main__':
     puncs = [
         'PAD', 'TOKEN', ',', '.']
 
-    segment_word = 20
-    segment_size = 60
+    segment_word = 12
+    segment_size = 36
     epochs_top = 1
     iterations_top = 2
-    batch_size_top = 256
-    learning_rate_top = 3e-5
+    batch_size_top = 128
+    learning_rate_top = 3e-4
     epochs_all = 4
     iterations_all = 3
-    batch_size_all = 64
-    learning_rate_all = 3e-5
+    batch_size_all = 128
+    learning_rate_all = 3e-4
     hyperparameters = {
         'segment_word': segment_word,
         'segment_size': segment_size,
@@ -213,10 +215,9 @@ if __name__ == '__main__':
 
     print('LOADING DATA...')
     #data_train = load_file(os.path.join(train_data_path2, 'europarl-v7.fr_cleaned.txt'))
-    #data_train = load_file2(os.path.join(train_data_path, 'cleaned_leMonde_with_punct_v2_for_punctuator.train.txt'), segment_word)
-    #data_train = load_file(os.path.join(train_data_path2, 'europarl-v7.fr_cleaned.txt'))
-    data_train = load_file(os.path.join(data_path,'subset_cleaned_leMonde_with_punct_v2_for_punctuator.train.txt'))
-    data_valid = load_file(os.path.join(data_path,'subset_cleaned_leMonde_with_punct_v2_for_punctuator.dev.txt'))
+    #data_valid = load_file2(os.path.join(train_data_path, 'cleaned_leMonde_with_punct_v2_for_punctuator.dev.txt'), segment_word)
+    data_train = load_file2(os.path.join(data_path,'subset_cleaned_leMonde_with_punct_v2_for_punctuator.train.txt'), segment_word)
+    data_valid = load_file2(os.path.join(data_path,'subset_cleaned_leMonde_with_punct_v2_for_punctuator.test.txt'), segment_word)
 
     tokenizer = CamembertTokenizer.from_pretrained('camembert-base')
 
@@ -226,12 +227,13 @@ if __name__ == '__main__':
 
     print('INITIALIZING MODEL...')
     output_size = len(punctuation_enc)
-    #bert_punc = BertPunc_ner(segment_size, output_size).cuda()
     bert_punc = nn.DataParallel(BertPunc_ner(segment_size, output_size).cuda())
 
     print('TRAINING TOP LAYER...')
-    data_loader_train = create_data_loader(X_train, y_train, True, batch_size_top)
-    data_loader_valid = create_data_loader(X_valid, y_valid, False, batch_size_top)
+    #data_loader_train = create_data_loader(X_train, y_train, True, batch_size_top)
+    #data_loader_valid = create_data_loader(X_valid, y_valid, False, batch_size_top)
+    data_loader_train = create_data_loader_without_attentions(X_train, y_train, True, batch_size_top)
+    data_loader_valid = create_data_loader_without_attentions(X_valid, y_valid, False, batch_size_top)
     for name, param in bert_punc.named_parameters():
         if 'classifier' not in name: # classifier layer
             param.requires_grad = False
@@ -242,9 +244,12 @@ if __name__ == '__main__':
     bert_punc, optimizer, best_val_loss = train(bert_punc, optimizer, criterion, epochs_top,
         data_loader_train, data_loader_valid, save_path, punctuation_enc, iterations_top, best_val_loss=1e9)
 
+
     print('TRAINING ALL LAYER...')
-    data_loader_train = create_data_loader(X_train, y_train, True, batch_size_all)
-    data_loader_valid = create_data_loader(X_valid, y_valid, False, batch_size_all)
+    #data_loader_train = create_data_loader(X_train, y_train, True, batch_size_all)
+    #data_loader_valid = create_data_loader(X_valid, y_valid, False, batch_size_all)
+    data_loader_train = create_data_loader_without_attentions(X_train, y_train, True, batch_size_all)
+    data_loader_valid = create_data_loader_without_attentions(X_valid, y_valid, False, batch_size_all)
     for p in bert_punc.module.bert.parameters():
         p.requires_grad = True
     optimizer = optim.AdamW(bert_punc.parameters(), lr=learning_rate_all)
