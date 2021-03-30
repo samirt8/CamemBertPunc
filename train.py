@@ -143,43 +143,46 @@ def train(model, optimizer, criterion, epochs, data_loader_train, data_loader_va
 
 if __name__ == '__main__':
 
-    #punctuation_enc = {
-    #    'PAD': 0,
-    #    'TOKEN': 1,
-    #    ',': 2,
-    #    '.': 3,
-    #    '▁?': 4,
-    #    '▁:': 5,
-    #    '▁!': 6,
-    #    '▁;': 7
-    #}
+    os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
+    os.environ["CUDA_VISIBLE_DEVICES"]="1"
 
     punctuation_enc = {
-            'PAD': 0,
-            'TOKEN': 1,
-            ',': 2,
-            '.': 3
-            }
+        'PAD': 0,
+        'TOKEN': 1,
+        ',': 2,
+        '.': 3,
+        '▁?': 4,
+        '▁:': 5,
+        '▁!': 6,
+        '▁;': 7
+    }
 
-    #punctuation_enc_validation = {
-    #    ',': 2,
-    #    '.': 3,
-    #    '▁?': 4,
-    #    '▁:': 5,
-    #    '▁!': 6,
-    #    '▁;': 7
-    #}
+    #punctuation_enc = {
+    #        'PAD': 0,
+    #        'TOKEN': 1,
+    #        ',': 2,
+    #        '.': 3
+    #        }
 
     punctuation_enc_validation = {
         ',': 2,
-        '.': 3
-        }
+        '.': 3,
+        '▁?': 4,
+        '▁:': 5,
+        '▁!': 6,
+        '▁;': 7
+    }
 
-    #puncs = [
-    #    'PAD', 'TOKEN', ',', '.', '▁?', '▁:', '▁!', '▁;']
+    #punctuation_enc_validation = {
+    #    ',': 2,
+    #    '.': 3
+    #    }
 
     puncs = [
-        'PAD', 'TOKEN', ',', '.']
+        'PAD', 'TOKEN', ',', '.', '▁?', '▁:', '▁!', '▁;']
+
+    #puncs = [
+    #    'PAD', 'TOKEN', ',', '.']
 
     segment_word = 20
     segment_size = 60

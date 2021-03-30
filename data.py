@@ -114,9 +114,6 @@ def encode_data3(data, tokenizer, puncs, punctuation_enc, segment_size):
             x_token = [x for x in x_token if x != '▁']
             sum_x_token += len(x_token)
             sum_data += 1
-            #for i in range(len(x_token)):
-            #    if x_token[i] == ".":
-            #        x_token.insert(i+1, "</s>")
             #if the first element of x_token is a punc, we delete it
             if x_token[0] in puncs:
                 del x_token[0]
@@ -139,12 +136,6 @@ def encode_data3(data, tokenizer, puncs, punctuation_enc, segment_size):
                 else:
                     j += 1
             if x_token_without_punc != []:
-                #number of [MASK] we add, 15% of the sentence
-                #nb_masks = int(0.15*len(x_token_without_punc)) + 1
-                #indices we will mask
-                #random_indices = random.sample(range(1, len(x_token_without_punc)), nb_masks)
-                #for j in random_indices:
-                #    x_token_without_punc[j] = '<mask>'
                 x_token_without_punc = " ".join(x_token_without_punc)
                 x = tokenizer.encode_plus(x_token_without_punc, pad_to_max_length=True, add_special_tokens=False, truncation=True, max_length=segment_size, return_attention_mask=True)
                 x_decode = tokenizer.convert_ids_to_tokens(x["input_ids"])
