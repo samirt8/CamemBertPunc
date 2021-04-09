@@ -1,92 +1,82 @@
 import random
 import numpy as np
+import pandas as pd
 import torch
 import array
 from torch.utils.data import TensorDataset, DataLoader
+from transformers import CamembertTokenizer
 from keras.preprocessing.sequence import pad_sequences
 
 
-def load_file2(filename, segment_word):
-    """
-    In this version of load_file, we split the sentence every x tokens and deal with it
-    segment word is the number of words in each segment
-    """
-    data = []
-    with open(filename, 'r', encoding='utf-8') as f:
-        huge_list = f.read().split()
-        len_huge_list = len(huge_list)
-        for i in range(len_huge_list//segment_word):
-            data.append(" ".join(huge_list[i*segment_word:(i+1)*segment_word]))
-    return data
+class PunctuationDataset(Dataset):
+    """Dataset to infer punctuation"""
 
+    def __init__(self, txt_file, segment_word, segment_size, puncs):
+        """
+        :param csv_file: csv file where data is stored
+        :param segment_word: length in words in each sentence
+        :param segment_size: length in tokens in each sentence
+        """
+        self.segment_word = segment_word
+        self.segment_size = segment_size
+        self.txt_file = txt_file
+        data = []
+        with open(self.txt_file, "r", encoding="utf-8") as f:
+            # we store the all file
+            huge_list = f.read().split()
+            len_huge_list = len(huge_list)
+            for i in range(len_huge_list//self.segment_word):
+                data.append(" ".join(huge_list[i*self.segment_word:(i+1)*self.segment_word]))
+        self.data = data
+        # need to change this
+        self.tokenizer = CamembertTokenizer.from_pretrained("camembert-base")
+        self.puncs = puncs
+        self.punctuation_enc = {k:i for i,k in enumerate(self.puncs)}
 
-#for inference mode
-def load_file_sentence(text, segment_word):
-    data = []
-    text = text.split()
-    len_list = len(text)
-    for i in range(len_list//segment_word):
-        data.append(" ".join(list[i*segment_word:(i+1)*segment_word]))
-    return data
+    def __len__(self):
+        # number of lines in the file
+        return len(self.data)
 
+    def __get_item__(self, idx):
+        if torch.is_tensor(idx):
+            idx = idx.tolist()
 
-def encode_data3(data, tokenizer, puncs, punctuation_enc, segment_word, segment_size):
-    """
-    Converts words to (BERT) tokens and punctuation to given encoding.
-    Note that words can be composed of multiple tokens. This is the data
-    preprocessing for NER, we delete all punctuation in x
-    """
-    X = []
-    Y = []
-    sum_x_token = 0
-    sum_data = 0
-    for line in data:
-        if len(line.split()) > 5:
-            x = tokenizer.encode_plus(line, pad_to_max_length=False, add_special_tokens=False, truncation=False, return_attention_mask=True)
+        if len(self.data[idx].split()) <= 5:
+            return None
+        else:
+            x = self.tokenizer.encode_plus(self.data[idx], pad_to_max_length=False, add_special_tokens=False, truncation=False, return_attention_mask=True)
             y = []
-            x_token = tokenizer.convert_ids_to_tokens(x["input_ids"])
-            x_token = [x for x in x_token if x != '▁']
-            sum_x_token += len(x_token)
-            sum_data += 1
-            #if the first element of x_token is a punc, we delete it
-            if x_token[0] in puncs:
+            x_token = self.tokenizer.convert_ids_to_tokens(x["inputs_ids"])
+            x_token = [x for x in x_token if x != "▁"]
+
+            # we delete the first element if it's punctuation
+            if x_token[0] in self.puncs:
                 del x_token[0]
-            #list x_token without the punctuation
+            # list x_token without the punctuation
             x_token_without_punc = []
             for i in range(len(x_token)):
-                if x_token[i] in puncs:
-                    y.append(punctuation_enc[x_token[i]])
+                if x_token[i] in self.puncs:
+                    y.append(self.punctuation_enc[x_token[i]])
+                    del y[-2]
+                    # if there is a comma, an exclamation point or interrogation point, we add an end of sentence
+                    # we don't use it
+                    #if x_token[i] in [".", "?", "!"]:
+                    #    x_token_without_punc.append("</s>")
+                    #    y.append(self.punctuation_enc["TOKEN"])
                 else:
-                    y.append(punctuation_enc["TOKEN"])
+                    y.append(self.punctuation_enc["TOKEN"])
                     x_token_without_punc.append(x_token[i])
-            # new line
-            x_token_without_punc.append("</s>")
-            y.append(punctuation_enc["TOKEN"])
-            j = 1
-            while(j < len(y)):
-                if y[j] != punctuation_enc["TOKEN"]:
-                    del y[j-1]
-                else:
-                    j += 1
             if x_token_without_punc != []:
                 x_token_without_punc = " ".join(x_token_without_punc)
-                x = tokenizer.encode_plus(x_token_without_punc, pad_to_max_length=True, add_special_tokens=False, truncation=True, max_length=segment_size, return_attention_mask=True)
-                x_decode = tokenizer.convert_ids_to_tokens(x["input_ids"])
-                X.append(x)
-                Y.append(y)
-    Y = pad_sequences([y for y in Y], maxlen=segment_size, dtype="long", value=0,
-                        truncating="post", padding="post")
-    return X, Y
 
+                # {input_ids: [...], attention_mask: [...]}
+                x = self.tokenizer.encode_plus(x_token_without_punc, pad_to_max_length=True,
+                                          add_special_tokens=False, truncation=True,
+                                          max_length=self.segment_size, return_attention_mask=True,
+                                          padding="max_length")
 
-def create_data_loader(X, y, shuffle, batch_size):
-    data_set = TensorDataset(torch.from_numpy(np.array([x["input_ids"] for x in X])).long(), torch.from_numpy(np.array([x["attention_mask"] for x in X])).long(), torch.from_numpy(np.array(y)).long())
-    data_loader = DataLoader(data_set, batch_size=batch_size, shuffle=shuffle)
-    return data_loader
+            # [...]
+            y = pad_sequences([y], maxlen=self.segment_size, dtype="long", value=0, truncating="post",
+                                padding="post")[0]
 
-
-def create_data_loader_without_attentions(X, y, shuffle, batch_size):
-    data_set = TensorDataset(torch.from_numpy(np.array([x["input_ids"] for x in X])).long(), torch.from_numpy(np.array(y)).long())
-    data_loader = DataLoader(data_set, batch_size=batch_size, shuffle=shuffle)
-    return data_loader
-
+            return {"input_values": x, "labels": y}
