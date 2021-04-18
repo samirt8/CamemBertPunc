@@ -11,6 +11,6 @@ class BertPunc_ner(nn.Module):
                                     output_attentions = True,
                                     output_hidden_states = False)
 
-    def forward(self, x):
-        output = self.bert(input_ids=x["input_ids"], attention_mask=x["attention_mask"])
+    def forward(self, x, labels):
+        output = self.bert(input_ids=x["input_ids"], attention_mask=x["attention_mask"], labels=labels)
         return output

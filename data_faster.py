@@ -6,6 +6,7 @@ import array
 from torch.utils.data import TensorDataset, DataLoader
 from transformers import CamembertTokenizer
 from keras.preprocessing.sequence import pad_sequences
+from torch.utils.data import Dataset
 
 
 class PunctuationDataset(Dataset):
@@ -37,46 +38,61 @@ class PunctuationDataset(Dataset):
         # number of lines in the file
         return len(self.data)
 
-    def __get_item__(self, idx):
+    def __getitem__(self, idx):
         if torch.is_tensor(idx):
-            idx = idx.tolist()
+            idx = int(idx.tolist())
+
 
         if len(self.data[idx].split()) <= 5:
             return None
         else:
             x = self.tokenizer.encode_plus(self.data[idx], pad_to_max_length=False, add_special_tokens=False, truncation=False, return_attention_mask=True)
             y = []
-            x_token = self.tokenizer.convert_ids_to_tokens(x["inputs_ids"])
-            x_token = [x for x in x_token if x != "▁"]
+            x_token = self.tokenizer.convert_ids_to_tokens(x["input_ids"])
+            for i, element in enumerate(x_token):
+                if element == "▁;":
+                    x_token[i] = "."
+                elif element == "▁:":
+                    x_token[i] == ","
+                elif element == "▁":
+                    del x_token[i]
+                elif element in list(map(lambda x: "▁"+x, ["'", "#", "$", "%", "&", "'", "(", ")", "*", "+", "-", "/", "<", "=", ">", "@", "[", "^", "_", "`", "|", "~" , "'"])):
+                    del x_token[i]
+                else:
+                    continue
+            #x_token = [x for x in x_token if x != "▁"]
 
             # we delete the first element if it's punctuation
             if x_token[0] in self.puncs:
                 del x_token[0]
             # list x_token without the punctuation
             x_token_without_punc = []
+            attention_mask = []
             for i in range(len(x_token)):
                 if x_token[i] in self.puncs:
                     y.append(self.punctuation_enc[x_token[i]])
-                    del y[-2]
-                    # if there is a comma, an exclamation point or interrogation point, we add an end of sentence
-                    # we don't use it
-                    #if x_token[i] in [".", "?", "!"]:
-                    #    x_token_without_punc.append("</s>")
-                    #    y.append(self.punctuation_enc["TOKEN"])
                 else:
                     y.append(self.punctuation_enc["TOKEN"])
                     x_token_without_punc.append(x_token[i])
-            if x_token_without_punc != []:
-                x_token_without_punc = " ".join(x_token_without_punc)
+            j = 1
+            while(j < len(y)):
+                if y[j] != self.punctuation_enc["TOKEN"]:
+                    del y[j-1]
+                else:
+                    j += 1
+            if x_token_without_punc == []:
+                return None
 
-                # {input_ids: [...], attention_mask: [...]}
-                x = self.tokenizer.encode_plus(x_token_without_punc, pad_to_max_length=True,
-                                          add_special_tokens=False, truncation=True,
-                                          max_length=self.segment_size, return_attention_mask=True,
-                                          padding="max_length")
+            # {input_ids: [...], attention_mask: [...]}
+            x = self.tokenizer.encode_plus(x_token_without_punc, pad_to_max_length=True,
+                                        add_special_tokens=False, truncation=True,
+                                        max_length=self.segment_size, return_attention_mask=True,
+                                        padding="max_length")
 
             # [...]
-            y = pad_sequences([y], maxlen=self.segment_size, dtype="long", value=0, truncating="post",
-                                padding="post")[0]
+            zeros = (self.segment_size - len(y))*[0]
+            y = y + zeros
 
-            return {"input_values": x, "labels": y}
+            return {"inputs": torch.from_numpy(np.array(x["input_ids"])), 
+                    "attentions": torch.from_numpy(np.array(x["attention_mask"])), 
+                    "labels": torch.from_numpy(np.array(y[:self.segment_size]))}
