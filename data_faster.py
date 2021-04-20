@@ -83,6 +83,9 @@ class PunctuationDataset(Dataset):
             if x_token_without_punc == []:
                 return None
 
+            #print("x : ", x_token_without_punc)
+            #print("y : ", y)
+
             # {input_ids: [...], attention_mask: [...]}
             x = self.tokenizer.encode_plus(x_token_without_punc, pad_to_max_length=True,
                                         add_special_tokens=False, truncation=True,

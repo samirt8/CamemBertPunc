@@ -39,11 +39,10 @@ def validate(model, epoch, epochs, iteration, iterations, valid_loader, save_pat
             x = {"input_ids":inputs, "attention_mask":attentions}
             #output = model(x, labels)
             output = model(x)
-            #val_loss = output[0]
-            val_loss = criterion(output.view(-1, output_size, segment_size), labels)
+            val_loss = criterion(output.reshape(-1, output_size), labels.reshape(-1))
+            val_loss = val_loss.mean()
             val_losses.append(val_loss.cpu().data.numpy())
 
-            #y_pred = output[1].view(-1, output_size, segment_size).argmax(dim=1).cpu().data.numpy().flatten()
             y_pred = output.view(-1, output_size, segment_size).argmax(dim=1).cpu().data.numpy().flatten()
             y_true = labels.cpu().data.numpy().flatten()
             val_accs.append(metrics.accuracy_score(y_true, y_pred))
@@ -55,7 +54,6 @@ def validate(model, epoch, epochs, iteration, iterations, valid_loader, save_pat
             for i, sentence in enumerate(inputs):
                 sentence_input = tokenizer.convert_ids_to_tokens(sentence)
                 sentence_output = [inv_punctuation_enc.get(item, item) for item in output.argmax(dim=2)[i].cpu().data.numpy()]
-                #sentence_output = [inv_punctuation_enc.get(item, item) for item in output[1].argmax(dim=2)[i].cpu().data.numpy()]
                 result_sentence = [None]*(len(sentence_input)+len(sentence_output))
                 result_sentence[::2] = sentence_input
                 result_sentence[1::2] = sentence_output
@@ -123,23 +121,22 @@ def train(model, criterion, optimizer, scheduler, epochs, training_loader, valid
         iteration = 1
 
         for data in training_loader:
+            optimizer.zero_grad()
             inputs, attentions, labels = data["inputs"].cuda(0), data["attentions"].cuda(0), data["labels"].cuda(0)
             x = {"input_ids":inputs, "attention_mask":attentions}
             inputs.requires_grad = False
             attentions.requires_grad = False
             labels.requires_grad = False
-            #output = model(x, labels)
             output = model(x)
-            #loss = criterion(output[1].view(-1, output_size, segment_size), labels)
-            loss = criterion(output.view(-1, output_size, segment_size), labels)
-            #loss1 = output[0]
+            #output = output.view(-1, output_size, segment_size)
+            #output[attentions == 0] = -10000
+            loss = criterion(output.reshape(-1, output_size), labels.reshape(-1))
             # need to mask the loss function for every subword which are not end of word
+            loss = loss.mean()
             loss.backward()
-            nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+            #nn.utils.clip_grad_norm_(model.parameters(), max_norm=2.0)
             optimizer.step()
             scheduler.step()
-            #optimizer.zero_grad()
-            model.zero_grad()
             train_loss = loss.cpu().data.numpy()
 
             pbar.update()
@@ -180,9 +177,9 @@ if __name__ == '__main__':
 
     punctuation_enc = {k: i for i, k in enumerate(puncs)}
 
-    segment_word = 200
-    segment_size = 400
-    batch_size = 8
+    segment_word = 15
+    segment_size = 40
+    batch_size = 128
     epochs_top = 1
     iterations_top = 1
     learning_rate_top = 1e-4
@@ -204,7 +201,7 @@ if __name__ == '__main__':
     valid_data_path = "/media/nas/samir-data/punctuation/all_datasets/data_dir_punctuator_v3"
     save_path = 'models_faster/{}/'.format(datetime.now().strftime("%Y%m%d_%H%M%S"))
     os.mkdir(save_path)
-    train_file = os.path.join(train_data_path, "europarl-v7.fr_cleaned_70000.txt")
+    train_file = os.path.join(train_data_path, "europarl-v7.fr_cleaned_1000000.txt")
     valid_file = os.path.join(valid_data_path, "sub_subset_cleaned_leMonde_with_punct_v2_for_punctuator.dev.txt")
     with open(save_path+'hyperparameters.json', 'w') as f:
         json.dump(hyperparameters, f)
@@ -215,7 +212,7 @@ if __name__ == '__main__':
     valid_set = PunctuationDataset(valid_file, segment_word, segment_size, puncs)
 
     training_loader = DataLoader(training_set, batch_size=batch_size, shuffle=True, num_workers=10)
-    valid_loader = DataLoader(valid_set, batch_size=batch_size, shuffle=True)
+    valid_loader = DataLoader(valid_set, batch_size=batch_size, shuffle=False)
 
     tokenizer = CamembertTokenizer.from_pretrained('camembert-base')
 
@@ -227,7 +224,7 @@ if __name__ == '__main__':
     else:
         y_labels = [int(item) for sublist in [training_set[i]["labels"] for i in range(len(training_set))] for item in sublist]
         target_weights = torch.Tensor(compute_class_weight(class_weight="balanced",
-            classes=list(set(y_labels)), y=y_labels)).cuda(0)
+            classes=list(set(y_labels)), y=y_labels)).clamp_max(10).cuda(0)
         torch.save(target_weights, "target_weights.pt")
 
 
@@ -243,7 +240,7 @@ if __name__ == '__main__':
             param.requires_grad = True
         else:
             param.requires_grad = False
-    criterion = nn.NLLLoss(weight=target_weights, reduction='mean')
+    criterion = nn.NLLLoss(weight=target_weights, reduction='none')
     optimizer = optim.AdamW(bert_punc.parameters(), lr=learning_rate_top)
     scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=300, num_training_steps=len(training_loader))
     bert_punc, optimizer, best_val_loss = train(bert_punc, criterion, optimizer, scheduler, epochs_top,
@@ -253,7 +250,7 @@ if __name__ == '__main__':
     print('TRAINING ALL LAYER...')
     for p in bert_punc.parameters():
         p.requires_grad = True
-    criterion = nn.NLLLoss(weight=target_weights, reduction='mean')
+    criterion = nn.NLLLoss(weight=target_weights, reduction='none')
     optimizer = optim.AdamW(bert_punc.parameters(), lr=learning_rate_all)
     scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=300, num_training_steps=len(training_loader))
     bert_punc, optimizer, best_val_loss = train(bert_punc, criterion, optimizer, scheduler, epochs_all,
