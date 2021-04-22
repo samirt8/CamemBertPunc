@@ -208,8 +208,8 @@ if __name__ == '__main__':
 
 
     print('LOADING DATA...')
-    training_set = PunctuationDataset(train_file, segment_word, segment_size, puncs)
-    valid_set = PunctuationDataset(valid_file, segment_word, segment_size, puncs)
+    training_set = PunctuationDataset(train_file, segment_word, segment_size, puncs, train_mode=True)
+    valid_set = PunctuationDataset(valid_file, segment_word, segment_size, puncs, train_mode=False)
 
     training_loader = DataLoader(training_set, batch_size=batch_size, shuffle=True, num_workers=10)
     valid_loader = DataLoader(valid_set, batch_size=batch_size, shuffle=False)

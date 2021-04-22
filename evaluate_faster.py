@@ -16,22 +16,21 @@ from sklearn import metrics
 
 from torch.utils.data import DataLoader
 
-from model_faster import BertPunc_ner
+from model_faster1 import BertPunc_ner
 from data_faster import PunctuationDataset
 
 
-test_file = "dev.ester.clean"
+test_file = "/home/stanfous/datasets/models/camembert_punctuator/inputs/sub_subset_leMonde.txt"
 
-segment_word = 12
-segment_size = 30
+segment_word = 150
+segment_size = 450
 
 puncs = [
-        'PAD', 'TOKEN', ',', '.', '▁?','▁!']
-#puncs = ['PAD', 'TOKEN', ',', '.']
+        'PAD', 'TOKEN', ',', '.', '▁?', '▁!']
 
 
-test_set = PunctuationDataset(test_file, segment_word, segment_size, puncs)
-test_loader = DataLoader(test_set, shuffle=False, batch_size=128)
+test_set = PunctuationDataset(test_file, segment_word, segment_size, puncs, train_mode=False)
+test_loader = DataLoader(test_set, shuffle=False, batch_size=8)
 
 tokenizer = CamembertTokenizer.from_pretrained('camembert-base')
 
@@ -43,7 +42,6 @@ punctuation_enc = {
     '▁?': 4,
     '▁!': 5
 }
-#punctuation_enc = {'PAD':0, 'TOKEN':1, ',':2, '.':3}
 
 inv_punctuation_enc = {v: k for k, v in punctuation_enc.items()}
 
@@ -55,21 +53,13 @@ inv_punctuation_enc_modify = {
         4: '▁?',
         5: '▁!'
 }
-#inv_punctuation_enc_modify = {0:'', 1:'', 2:',', 3:'.'}
 
 output_size = len(punctuation_enc)
 bert_punc = BertPunc_ner(output_size)
 
-#underfit => 20201001_143458 (fonctionne bien)
-#overfit => 0200930_111537
-MODEL_PATH = "/media/nas/samir-data/CamemBertPunc/models_faster/20210415_153743/model"
-checkpoint = torch.load(MODEL_PATH, map_location=lambda storage, loc: storage)
-
-from collections import OrderedDict
-new_checkpoint = OrderedDict()
-for k, v in checkpoint.items():
-    new_k = k[7:]
-    new_checkpoint[new_k] = v
+MODEL_PATH = "/home/stanfous/datasets/models/camembert_punctuator/model"
+#checkpoint = torch.load(MODEL_PATH, map_location=lambda storage, loc: storage)
+checkpoint = torch.load(MODEL_PATH, map_location=torch.device("cpu"))
 
 #load params
 bert_punc.load_state_dict(checkpoint)
@@ -81,14 +71,15 @@ def predictions(data_loader):
         with torch.no_grad():
             inputs, attentions, labels = data["inputs"], data["attentions"], data["labels"]
             x = {"input_ids":inputs, "attention_mask":attentions}
-            output = bert_punc(x, labels=labels)[1]
-            #print("output : ", output)
+            output = bert_punc(x)
             y_pred += list(output.argmax(dim=2).cpu().data.numpy().flatten())
             y_true += list(labels.cpu().data.numpy().flatten())
             result_sentences = []
             for i, sentence in enumerate(inputs):
                 sentence_input = tokenizer.convert_ids_to_tokens(sentence)
+                print("sentence_input : ", sentence_input)
                 sentence_output = [inv_punctuation_enc_modify.get(item,item) for item in output.argmax(dim=2)[i].cpu().data.numpy()]
+                print("sentence_output : ", sentence_output)
                 result_sentence = [None]*(len(sentence_input)+len(sentence_output))
                 result_sentence[::2] = sentence_input
                 result_sentence[1::2] = sentence_output

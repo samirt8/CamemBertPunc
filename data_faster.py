@@ -5,14 +5,14 @@ import torch
 import array
 from torch.utils.data import TensorDataset, DataLoader
 from transformers import CamembertTokenizer
-from keras.preprocessing.sequence import pad_sequences
+#from keras.preprocessing.sequence import pad_sequences
 from torch.utils.data import Dataset
 
 
 class PunctuationDataset(Dataset):
     """Dataset to infer punctuation"""
 
-    def __init__(self, txt_file, segment_word, segment_size, puncs):
+    def __init__(self, txt_file, segment_word, segment_size, puncs, train_mode):
         """
         :param csv_file: csv file where data is stored
         :param segment_word: length in words in each sentence
@@ -21,6 +21,7 @@ class PunctuationDataset(Dataset):
         self.segment_word = segment_word
         self.segment_size = segment_size
         self.txt_file = txt_file
+        self.train_mode = train_mode
         data = []
         with open(self.txt_file, "r", encoding="utf-8") as f:
             # we store the all file
@@ -28,6 +29,8 @@ class PunctuationDataset(Dataset):
             len_huge_list = len(huge_list)
             for i in range(len_huge_list//self.segment_word):
                 data.append(" ".join(huge_list[i*self.segment_word:(i+1)*self.segment_word]))
+            if len_huge_list%int(self.segment_word) != 0:
+                data.append(" ".join(huge_list[int(self.segment_word)*(len_huge_list//int(self.segment_word)):]))
         self.data = data
         # need to change this
         self.tokenizer = CamembertTokenizer.from_pretrained("camembert-base")
@@ -49,18 +52,23 @@ class PunctuationDataset(Dataset):
             x = self.tokenizer.encode_plus(self.data[idx], pad_to_max_length=False, add_special_tokens=False, truncation=False, return_attention_mask=True)
             y = []
             x_token = self.tokenizer.convert_ids_to_tokens(x["input_ids"])
+            print("x_token : ", x_token)
             for i, element in enumerate(x_token):
                 if element == "▁;":
                     x_token[i] = "."
                 elif element == "▁:":
                     x_token[i] == ","
                 elif element == "▁":
-                    del x_token[i]
+                    try:
+                        next_element = x_token[i+1]
+                        if next_element in [".", ","]:
+                            del x_token[i]
+                    except ValueError:
+                        del x_token[i]
                 elif element in list(map(lambda x: "▁"+x, ["'", "#", "$", "%", "&", "'", "(", ")", "*", "+", "-", "/", "<", "=", ">", "@", "[", "^", "_", "`", "|", "~" , "'"])):
                     del x_token[i]
                 else:
                     continue
-            #x_token = [x for x in x_token if x != "▁"]
 
             # we delete the first element if it's punctuation
             if x_token[0] in self.puncs:
