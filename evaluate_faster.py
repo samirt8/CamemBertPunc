@@ -77,9 +77,9 @@ def predictions(data_loader):
             result_sentences = []
             for i, sentence in enumerate(inputs):
                 sentence_input = tokenizer.convert_ids_to_tokens(sentence)
-                print("sentence_input : ", sentence_input)
+                #print("sentence_input : ", sentence_input)
                 sentence_output = [inv_punctuation_enc_modify.get(item,item) for item in output.argmax(dim=2)[i].cpu().data.numpy()]
-                print("sentence_output : ", sentence_output)
+                #print("sentence_output : ", sentence_output)
                 result_sentence = [None]*(len(sentence_input)+len(sentence_output))
                 result_sentence[::2] = sentence_input
                 result_sentence[1::2] = sentence_output
@@ -96,9 +96,9 @@ def predictions(data_loader):
 
 def evaluation(y_pred, y_test):
     precision, recall, f1, _ = metrics.precision_recall_fscore_support(
-        y_test, y_pred, average=None, labels=[2, 3, 4, 5])
+        y_test, y_pred, average=None, labels=[2, 3, 4])
     overall = metrics.precision_recall_fscore_support(
-        y_test, y_pred, average='macro', labels=[2, 3, 4, 5])
+        y_test, y_pred, average='macro', labels=[2, 3, 4])
     result = pd.DataFrame(
         np.array([precision, recall, f1]),
         columns=list(punctuation_enc.keys())[2:],
@@ -109,6 +109,6 @@ def evaluation(y_pred, y_test):
 
 y_pred_test, y_true_test = predictions(test_loader)
 
-eval_test = evaluation(y_pred_test, y_true_test)
+print(evaluation(y_pred_test, y_true_test))
 
 print(datetime.now() - startTime)
